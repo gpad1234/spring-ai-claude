@@ -583,6 +583,27 @@ hr.sidebar-divider {
 
 .send-btn svg { width: 16px; height: 16px; }
 
+.model-select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, color 0.2s;
+  max-width: 200px;
+}
+
+.model-select:hover, .model-select:focus {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.model-select option { background: var(--surface2); }
+
 .input-hint {
   font-size: 11px;
   color: var(--text-dim);
@@ -786,7 +807,7 @@ hr.sidebar-divider {
     <div class="sidebar-section" style="padding-bottom:16px;">
       <div class="section-title">Configuration</div>
       <div style="font-size:11px; color: var(--text-dim); line-height:1.7; padding: 0 4px;">
-        <div>Model: <span style="color:var(--accent)">claude-sonnet-4</span></div>
+        <div>Model: <span id="sidebarModel" style="color:var(--accent)">claude-sonnet-4</span></div>
         <div>Max tokens: <span style="color:var(--text-muted)">4096</span></div>
         <div>Tools: <span style="color:var(--text-muted)">11 functions</span></div>
         <div>Streaming: <span style="color:var(--green)">SSE enabled</span></div>
@@ -824,7 +845,9 @@ hr.sidebar-divider {
         </button>
       </div>
       <div class="input-hint">
-        <span>Powered by Anthropic Claude + Spring AI</span>
+        <select id="modelSelect" class="model-select" title="Select model" onchange="onModelChange(this.value)">
+          <option value="">Loading models…</option>
+        </select>
         <span><kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> for new line</span>
       </div>
     </div>
@@ -837,6 +860,17 @@ hr.sidebar-divider {
 let messageCount = 0;
 let isStreaming = false;
 let currentEventSource = null;
+let selectedModel = '';
+
+function getSelectedModel() {
+  return document.getElementById('modelSelect')?.value || '';
+}
+
+function onModelChange(value) {
+  selectedModel = value;
+  const select = document.getElementById('modelSelect');
+  updateModelDisplay(select);
+}
 
 // Configure marked.js
 marked.setOptions({
@@ -1015,7 +1049,8 @@ function doSend(text) {
   // Abort any existing stream
   if (currentEventSource) { currentEventSource.close(); }
 
-  const url = `/api/agent/stream?message=${encodeURIComponent(text)}`;
+  const model = getSelectedModel();
+  const url = `/api/agent/stream?message=${encodeURIComponent(text)}${model ? '&model=' + encodeURIComponent(model) : ''}`;
   const sse = new EventSource(url);
   currentEventSource = sse;
   let agentBubble = null;
@@ -1151,7 +1186,6 @@ async function checkHealth() {
     const data = await res.json();
     if (data.status === 'ready') {
       document.getElementById('statusBadge').textContent = 'Connected';
-      document.getElementById('modelBadge').textContent = data.model || 'claude';
     }
   } catch {
     document.getElementById('statusBadge').textContent = 'Offline';
@@ -1162,7 +1196,61 @@ async function checkHealth() {
   }
 }
 
+// --- Load models ---
+const PROVIDER_LABELS = {
+  anthropic: '☁️ Anthropic (cloud)',
+  ollama:    '🦙 Ollama (local)'
+};
+
+async function loadModels() {
+  try {
+    const res = await fetch('/api/agent/models');
+    const data = await res.json();
+    const select = document.getElementById('modelSelect');
+    select.innerHTML = '';
+
+    // Group by provider
+    const groups = {};
+    data.models.forEach(m => {
+      const prov = m.provider || 'other';
+      (groups[prov] = groups[prov] || []).push(m);
+    });
+
+    Object.entries(groups).forEach(([prov, models]) => {
+      const group = document.createElement('optgroup');
+      group.label = PROVIDER_LABELS[prov] || prov;
+      models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        opt.title = m.description;
+        opt.dataset.shortName = m.name.split(' ').slice(0, 3).join(' ');
+        opt.dataset.provider = m.provider || '';
+        if (m.id === data.defaultModel) { opt.selected = true; }
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    });
+
+    // Initialise badge from the selected option
+    updateModelDisplay(select);
+  } catch (e) {
+    console.warn('Could not load models', e);
+    const select = document.getElementById('modelSelect');
+    select.innerHTML = '<option value="">Default model</option>';
+  }
+}
+
+function updateModelDisplay(select) {
+  const chosen = select.options[select.selectedIndex];
+  const label = chosen?.dataset?.shortName || chosen?.value || 'claude';
+  document.getElementById('modelBadge').textContent = label;
+  const sidebarEl = document.getElementById('sidebarModel');
+  if (sidebarEl) sidebarEl.textContent = label;
+}
+
 checkHealth();
+loadModels();
 </script>
 </body>
 </html>

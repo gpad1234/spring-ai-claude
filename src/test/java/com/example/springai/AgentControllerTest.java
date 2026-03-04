@@ -16,37 +16,37 @@ class AgentControllerTest {
      * Simple fake service for testing the controller logic.
      */
     private final AgentController controller = new AgentController(
-            new FakeAgentService()
+            new FakeAgentService(), "claude-sonnet-4-20250514"
     );
 
     @Test
     void chatEndpointReturnsResponse() {
-        var request = new ChatRequest("Hello");
+        var request = new ChatRequest("Hello", null);
         ResponseEntity<AgentResponse> response = controller.chat(request);
 
         assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
-        assertEquals("response: Hello", response.getBody().response());
+        assertEquals("response+model[null]: Hello", response.getBody().response());
     }
 
     @Test
     void taskEndpointReturnsResponse() {
-        var request = new TaskRequest("What time is it?", null);
+        var request = new TaskRequest("What time is it?", null, null);
         ResponseEntity<AgentResponse> response = controller.task(request);
 
         assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
-        assertEquals("response: What time is it?", response.getBody().response());
+        assertEquals("response+model[null]: What time is it?", response.getBody().response());
     }
 
     @Test
     void taskEndpointWithSystemPrompt() {
-        var request = new TaskRequest("Hello", "Be brief");
+        var request = new TaskRequest("Hello", "Be brief", null);
         ResponseEntity<AgentResponse> response = controller.task(request);
 
         assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
-        assertEquals("response+system: Hello", response.getBody().response());
+        assertEquals("response+model[null]: Hello", response.getBody().response());
     }
 
     @Test
@@ -54,6 +54,6 @@ class AgentControllerTest {
         var response = controller.health();
         assertEquals(200, response.getStatusCode().value());
         assertEquals("ready", response.getBody().get("status"));
-        assertEquals("claude", response.getBody().get("model"));
+        assertEquals("claude-sonnet-4-20250514", response.getBody().get("model"));
     }
 }

@@ -51,6 +51,12 @@
             <artifactId>spring-ai-starter-model-anthropic</artifactId>
         </dependency>
 
+        <!-- Spring AI - Ollama (local open-source models) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

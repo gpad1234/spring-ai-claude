@@ -8,5 +8,7 @@ import reactor.core.publisher.Flux;
 public interface AgentServiceApi {
     String executeTask(String userMessage);
     String executeTask(String userMessage, String systemOverride);
+    String executeTask(String userMessage, String systemOverride, String model);
     Flux<String> streamTask(String userMessage);
+    Flux<String> streamTask(String userMessage, String model);
 }

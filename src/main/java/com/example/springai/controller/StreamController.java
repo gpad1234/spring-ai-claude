@@ -34,7 +34,8 @@ public class StreamController {
      * Event types: thinking | token | error | done
      */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream(@RequestParam String message) {
+    public SseEmitter stream(@RequestParam String message,
+                             @RequestParam(required = false) String model) {
         SseEmitter emitter = new SseEmitter(120_000L);
 
         // Send "thinking" event immediately so the UI can show loading state
@@ -45,9 +46,9 @@ public class StreamController {
             return emitter;
         }
 
-        log.info("SSE stream started for message: {}", message);
+        log.info("SSE stream started for message: {} (model={})", message, model != null ? model : "default");
 
-        agentService.streamTask(message)
+        agentService.streamTask(message, model)
                 .subscribe(
                         token -> {
                             try {

@@ -19,7 +19,17 @@ class FakeAgentService implements AgentServiceApi {
     }
 
     @Override
+    public String executeTask(String userMessage, String systemOverride, String model) {
+        return "response+model[" + model + "]: " + userMessage;
+    }
+
+    @Override
     public Flux<String> streamTask(String userMessage) {
         return Flux.just("streamed ", "response: ", userMessage);
+    }
+
+    @Override
+    public Flux<String> streamTask(String userMessage, String model) {
+        return Flux.just("streamed[" + model + "] ", "response: ", userMessage);
     }
 }
