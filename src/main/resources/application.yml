@@ -11,6 +11,16 @@ spring:
           max-tokens: 4096
           temperature: 0.7
 
+    # Groq — free-tier cloud inference for open-source models (https://console.groq.com)
+    # Get a free API key at https://console.groq.com and set GROQ_API_KEY
+    openai:
+      api-key: ${GROQ_API_KEY:}
+      base-url: https://api.groq.com/openai
+      chat:
+        options:
+          model: llama-3.3-70b-versatile
+          temperature: 0.7
+
     # Ollama — local open-source models (https://ollama.ai)
     # Start Ollama, then: ollama pull llama3.2
     ollama:

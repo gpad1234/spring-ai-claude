@@ -21,6 +21,11 @@ public class AgentController {
             new ModelInfo("claude-opus-4-5",          "Claude Opus 4.5",  "Most capable, best for complex tasks",     "anthropic"),
             new ModelInfo("claude-sonnet-4-20250514", "Claude Sonnet 4",  "Balanced performance and speed (default)", "anthropic"),
             new ModelInfo("claude-haiku-4-5",         "Claude Haiku 4.5", "Fastest and most compact",                 "anthropic"),
+            // ---- Groq — free cloud inference (https://console.groq.com) ----
+            new ModelInfo("llama-3.3-70b-versatile", "Llama 3.3 70B",  "Meta on Groq · requires GROQ_API_KEY",      "groq"),
+            new ModelInfo("llama-3.1-8b-instant",    "Llama 3.1 8B",   "Meta on Groq · fastest/cheapest",           "groq"),
+            new ModelInfo("mixtral-8x7b-32768",      "Mixtral 8x7B",   "Mistral on Groq · 32k context",             "groq"),
+            new ModelInfo("gemma2-9b-it",            "Gemma 2 9B",     "Google on Groq · requires GROQ_API_KEY",    "groq"),
             // ---- Ollama — local open-source (https://ollama.ai) ----
             new ModelInfo("llama3.2",   "Llama 3.2 (8B)",  "Meta · run: ollama pull llama3.2",   "ollama"),
             new ModelInfo("mistral",    "Mistral 7B",       "Mistral AI · run: ollama pull mistral",  "ollama"),
