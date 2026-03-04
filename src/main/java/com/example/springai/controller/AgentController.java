@@ -18,11 +18,9 @@ public class AgentController {
     /** All available models, grouped by provider. */
     public static final List<ModelInfo> AVAILABLE_MODELS = List.of(
             // ---- Anthropic (cloud) ----
-            new ModelInfo("claude-opus-4-5",           "Claude Opus 4.5",    "Most capable, best for complex tasks",       "anthropic"),
-            new ModelInfo("claude-sonnet-4-20250514",   "Claude Sonnet 4",    "Balanced performance and speed (default)",   "anthropic"),
-            new ModelInfo("claude-haiku-4-5",           "Claude Haiku 4.5",   "Fastest and most compact",                   "anthropic"),
-            new ModelInfo("claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet",  "Previous generation Sonnet",                "anthropic"),
-            new ModelInfo("claude-3-5-haiku-20241022",  "Claude 3.5 Haiku",   "Previous generation Haiku",                 "anthropic"),
+            new ModelInfo("claude-opus-4-5",          "Claude Opus 4.5",  "Most capable, best for complex tasks",     "anthropic"),
+            new ModelInfo("claude-sonnet-4-20250514", "Claude Sonnet 4",  "Balanced performance and speed (default)", "anthropic"),
+            new ModelInfo("claude-haiku-4-5",         "Claude Haiku 4.5", "Fastest and most compact",                 "anthropic"),
             // ---- Ollama — local open-source (https://ollama.ai) ----
             new ModelInfo("llama3.2",   "Llama 3.2 (8B)",  "Meta · run: ollama pull llama3.2",   "ollama"),
             new ModelInfo("mistral",    "Mistral 7B",       "Mistral AI · run: ollama pull mistral",  "ollama"),
