@@ -5,7 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
-import org.springframework.ai.chat.ChatOptions;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.ollama.OllamaChatModel;
@@ -51,6 +51,7 @@ public class AgentService implements AgentServiceApi {
             AnthropicChatModel anthropicChatModel,
             @Autowired(required = false) @Nullable OpenAiChatModel groqChatModel,
             @Autowired(required = false) @Nullable OllamaChatModel ollamaChatModel,
+            @Value("${spring.ai.openai.api-key:groq-not-configured}") String groqApiKey,
             @Value("${agent.max-iterations:10}") int maxIterations,
             @Value("${agent.system-prompt:You are a helpful AI agent with tool-calling skills.}") String systemPrompt) {
 
@@ -60,7 +61,11 @@ public class AgentService implements AgentServiceApi {
                 .defaultToolNames(AgentConfig.ALL_SKILL_NAMES)
                 .build();
 
-        this.groqClient = groqChatModel != null
+        // Only create the Groq client when a real API key is present
+        boolean groqKeyPresent = groqChatModel != null
+                && !groqApiKey.isBlank()
+                && !"groq-not-configured".equals(groqApiKey);
+        this.groqClient = groqKeyPresent
                 ? ChatClient.builder(groqChatModel)
                         .defaultAdvisors(new SimpleLoggerAdvisor())
                         .defaultSystem(systemPrompt)

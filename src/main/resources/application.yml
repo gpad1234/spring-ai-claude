@@ -14,7 +14,7 @@ spring:
     # Groq — free-tier cloud inference for open-source models (https://console.groq.com)
     # Get a free API key at https://console.groq.com and set GROQ_API_KEY
     openai:
-      api-key: ${GROQ_API_KEY:}
+      api-key: ${GROQ_API_KEY:groq-not-configured}
       base-url: https://api.groq.com/openai
       chat:
         options:
