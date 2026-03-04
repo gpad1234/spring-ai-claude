@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Claude Agent — Spring AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+:root {
+  --bg: #0a0b0f;
+  --surface: #13141a;
+  --surface2: #1a1b23;
+  --border: #2a2b35;
+  --border-light: #3a3b48;
+  --text: #e8e9f0;
+  --text-muted: #7a7b8a;
+  --text-dim: #444558;
+  --accent: #7c6af7;
+  --accent2: #5b9cf6;
+  --accent-glow: rgba(124, 106, 247, 0.15);
+  --user-bg: linear-gradient(135deg, #7c6af7 0%, #5b9cf6 100%);
+  --agent-bg: #1a1b23;
+  --green: #4ade80;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%; width: 100%;
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* === LAYOUT === */
+.app {
+  display: grid;
+  grid-template-rows: 56px 1fr;
+  grid-template-columns: 280px 1fr;
+  height: 100vh;
+  grid-template-areas:
+    "header header"
+    "sidebar main";
+}
+
+/* === HEADER === */
+header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 0 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 10;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-logo {
+  width: 30px; height: 30px;
+  background: var(--user-bg);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  box-shadow: 0 0 16px rgba(124,106,247,0.4);
+}
+
+.brand-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.brand-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.header-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: var(--surface2);
+}
+
+.badge.live {
+  border-color: rgba(74, 222, 128, 0.3);
+  color: var(--green);
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.badge.live::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+  margin-right: 5px;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.header-right {
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* === SIDEBAR === */
+.sidebar {
+  grid-area: sidebar;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.sidebar-section {
+  padding: 16px 16px 0;
+}
+
+.sidebar-section:last-child { padding-bottom: 16px; }
+
+.section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+
+/* Skills grid */
+.skills-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.skill-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: default;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.skill-chip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent-glow);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.skill-chip.active {
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: 0 0 12px rgba(124,106,247,0.2);
+}
+
+.skill-chip.active::before { opacity: 1; }
+
+.skill-chip.pulsing {
+  animation: skill-pulse 1s ease-in-out infinite;
+}
+
+@keyframes skill-pulse {
+  0%, 100% { border-color: var(--accent); box-shadow: 0 0 8px rgba(124,106,247,0.2); }
+  50% { border-color: var(--accent2); box-shadow: 0 0 20px rgba(91,156,246,0.4); }
+}
+
+.skill-icon { font-size: 14px; }
+
+/* Demo prompts */
+.demo-prompts { display: flex; flex-direction: column; gap: 6px; }
+
+.demo-btn {
+  text-align: left;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.4;
+}
+
+.demo-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-glow);
+}
+
+.demo-btn:active { transform: scale(0.98); }
+
+.demo-btn .demo-icon {
+  display: block;
+  font-size: 10px;
+  color: var(--accent);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+hr.sidebar-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 12px 16px;
+}
+
+/* === MAIN CHAT === */
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Chat messages */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  scroll-behavior: smooth;
+}
+
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Welcome state */
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+  gap: 16px;
+  padding: 40px 20px;
+  opacity: 0.9;
+}
+
+.welcome-logo {
+  width: 64px; height: 64px;
+  background: var(--user-bg);
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 0 40px rgba(124, 106, 247, 0.3);
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.welcome h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.welcome p {
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 380px;
+  line-height: 1.6;
+}
+
+.welcome-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 480px;
+}
+
+.welcome-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Message bubbles */
+.message-row {
+  display: flex;
+  gap: 12px;
+  animation: msg-in 0.25s ease-out;
+}
+
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message-row.user { justify-content: flex-end; }
+
+.avatar {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  margin-top: 2px;
+}
+
+.avatar.agent {
+  background: linear-gradient(135deg, #2a2b35, #3a3b48);
+  border: 1px solid var(--border);
+  font-size: 18px;
+}
+
+.avatar.user {
+  background: var(--user-bg);
+  order: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+}
+
+.bubble {
+  max-width: 72%;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  line-height: 1.6;
+  position: relative;
+}
+
+.bubble.agent {
+  background: var(--agent-bg);
+  border: 1px solid var(--border);
+  border-radius: 2px var(--radius) var(--radius) var(--radius);
+  color: var(--text);
+}
+
+.bubble.user {
+  background: var(--user-bg);
+  color: white;
+  border-radius: var(--radius) 2px var(--radius) var(--radius);
+  font-weight: 450;
+}
+
+/* Markdown styles inside agent bubble */
+.bubble.agent h1, .bubble.agent h2, .bubble.agent h3 {
+  font-weight: 600;
+  margin: 10px 0 6px;
+  letter-spacing: -0.3px;
+}
+.bubble.agent h1 { font-size: 17px; }
+.bubble.agent h2 { font-size: 15px; }
+.bubble.agent h3 { font-size: 14px; }
+.bubble.agent p { margin-bottom: 8px; }
+.bubble.agent p:last-child { margin-bottom: 0; }
+.bubble.agent ul, .bubble.agent ol { padding-left: 20px; margin-bottom: 8px; }
+.bubble.agent li { margin-bottom: 3px; }
+.bubble.agent strong { font-weight: 600; color: #fff; }
+.bubble.agent em { color: var(--text-muted); }
+.bubble.agent code:not(pre code) {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: rgba(124,106,247,0.12);
+  color: #b9a9ff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(124,106,247,0.2);
+}
+.bubble.agent pre {
+  margin: 10px 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #0d0e12 !important;
+}
+.bubble.agent pre code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 12px 14px !important;
+  display: block;
+  overflow-x: auto;
+  line-height: 1.6;
+}
+.bubble.agent blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  color: var(--text-muted);
+  margin: 8px 0;
+  font-style: italic;
+}
+.bubble.agent a { color: var(--accent2); text-decoration: none; }
+.bubble.agent a:hover { text-decoration: underline; }
+.bubble.agent table {
+  width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px;
+}
+.bubble.agent th, .bubble.agent td {
+  padding: 6px 10px; border: 1px solid var(--border); text-align: left;
+}
+.bubble.agent th { background: var(--surface2); font-weight: 600; }
+.bubble.agent hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+/* Streaming cursor */
+.cursor {
+  display: inline-block;
+  width: 2px; height: 15px;
+  background: var(--accent);
+  vertical-align: middle;
+  margin-left: 2px;
+  animation: blink 0.8s ease-in-out infinite;
+  border-radius: 1px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Thinking indicator */
+.thinking-row {
+  display: flex;
+  gap: 12px;
+  animation: msg-in 0.25s ease-out;
+}
+
+.thinking-bubble {
+  background: var(--agent-bg);
+  border: 1px solid var(--border);
+  border-radius: 2px var(--radius) var(--radius) var(--radius);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.thinking-dots {
+  display: flex; gap: 4px; align-items: center;
+}
+
+.thinking-dots span {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: thinking 1.2s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinking {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* === INPUT BAR === */
+.input-bar {
+  padding: 16px 28px 20px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  position: relative;
+}
+
+.input-bar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.3;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124, 106, 247, 0.1);
+}
+
+#msgInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  resize: none;
+  max-height: 140px;
+  min-height: 20px;
+  line-height: 1.5;
+  padding: 0;
+}
+
+#msgInput::placeholder { color: var(--text-dim); }
+
+#msgInput::-webkit-scrollbar { width: 3px; }
+#msgInput::-webkit-scrollbar-thumb { background: var(--border); }
+
+.send-btn {
+  width: 36px; height: 36px;
+  flex-shrink: 0;
+  background: var(--user-bg);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s ease;
+  color: white;
+}
+
+.send-btn:hover { transform: scale(1.05); box-shadow: 0 0 16px rgba(124,106,247,0.4); }
+.send-btn:active { transform: scale(0.97); }
+.send-btn:disabled { opacity: 0.4; cursor: default; transform: none; box-shadow: none; }
+
+.send-btn svg { width: 16px; height: 16px; }
+
+.input-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 6px 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.input-hint kbd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 1px 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+/* === MISC === */
+.stat-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.stat-card {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -1px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+/* Mesh background on main */
+.main {
+  background: 
+    radial-gradient(ellipse at 20% 50%, rgba(124,106,247,0.03) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(91,156,246,0.03) 0%, transparent 60%),
+    var(--bg);
+}
+
+/* Scrollbar for chat */
+.chat-messages { scrollbar-gutter: stable; }
+
+/* Error message */
+.error-bubble {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: var(--red);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  animation: msg-in 0.25s ease-out;
+}
+
+/* Smooth scroll anchor */
+#bottom-anchor { height: 1px; }
+
+/* Responsive */
+@media (max-width: 700px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-areas: "header" "main";
+  }
+  .sidebar { display: none; }
+}
+
+/* Code copy button */
+.code-block-wrapper { position: relative; }
+.copy-btn {
+  position: absolute;
+  top: 6px; right: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.code-block-wrapper:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { color: var(--text); background: var(--border); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-brand">
+      <div class="brand-logo">🤖</div>
+      <div>
+        <div class="brand-title">Claude AI Agent</div>
+        <div class="brand-sub">Spring AI Agentic Workflow</div>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span class="badge live" id="statusBadge">Connected</span>
+      <span class="badge">Spring AI 1.1.2</span>
+      <span class="badge" id="modelBadge">claude-sonnet-4</span>
+    </div>
+    <div class="header-right">
+      <button class="demo-btn" onclick="clearChat()" style="padding:5px 12px;font-size:12px;border-radius:8px;">Clear</button>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="section-title">Agent Skills</div>
+      <div class="skills-grid" id="skillsGrid">
+        <div class="skill-chip" data-skill="getCurrentTime" title="Get current time in any timezone">
+          <span class="skill-icon">⏰</span><span>DateTime</span>
+        </div>
+        <div class="skill-chip" data-skill="evaluateMath" title="Evaluate math expressions">
+          <span class="skill-icon">🧮</span><span>Math</span>
+        </div>
+        <div class="skill-chip" data-skill="readFile" title="Read/write files in agent workspace">
+          <span class="skill-icon">📁</span><span>Files</span>
+        </div>
+        <div class="skill-chip" data-skill="executeShellCommand" title="Run safe shell commands">
+          <span class="skill-icon">🔧</span><span>Shell</span>
+        </div>
+        <div class="skill-chip" data-skill="fetchUrl" title="Fetch content from URLs">
+          <span class="skill-icon">🌐</span><span>WebFetch</span>
+        </div>
+        <div class="skill-chip" data-skill="storeMemory" title="Store and retrieve key-value data">
+          <span class="skill-icon">🧠</span><span>Memory</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="stat-value" id="msgCount">0</div>
+          <div class="stat-label">Messages</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="skillCount">6</div>
+          <div class="stat-label">Skills</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="sidebar-divider"/>
+
+    <div class="sidebar-section">
+      <div class="section-title">Quick Demos</div>
+      <div class="demo-prompts">
+        <button class="demo-btn" onclick="sendDemo(this.dataset.msg)" data-msg="What is the current date and time in Tokyo, New York, and London?">
+          <span class="demo-icon">⏰ DateTime</span>
+          Current time in 3 timezones
+        </button>
+        <button class="demo-btn" onclick="sendDemo(this.dataset.msg)" data-msg="Calculate: (2^10 * 3.14159) - (100 / 7) and explain step by step">
+          <span class="demo-icon">🧮 Math</span>
+          Complex math expression
+        </button>
+        <button class="demo-btn" onclick="sendDemo(this.dataset.msg)" data-msg="Create a file called notes.md in my workspace with a project plan for building a todo app. Then list the files to confirm it was created.">
+          <span class="demo-icon">📁 Files + Shell</span>
+          Write file & verify
+        </button>
+        <button class="demo-btn" onclick="sendDemo(this.dataset.msg)" data-msg="Fetch the content from https://api.github.com/repos/spring-projects/spring-ai and tell me the star count, open issues, and last push date.">
+          <span class="demo-icon">🌐 Web Fetch</span>
+          GitHub API data
+        </button>
+        <button class="demo-btn" onclick="sendDemo(this.dataset.msg)" data-msg="Remember my name is Alex and I prefer Python. Later, recall those preferences and use them in a greeting.">
+          <span class="demo-icon">🧠 Memory</span>
+          Store & recall memory
+        </button>
+        <button class="demo-btn" onclick="sendDemo(this.dataset.msg)" data-msg="I need to plan a 7-day trip to Japan starting March 15, 2026. Calculate how many days from today that is, list what files I have in my workspace, and fetch weather info from https://wttr.in/Tokyo?format=j1">
+          <span class="demo-icon">🚀 Multi-skill</span>
+          Multi-skill workflow
+        </button>
+      </div>
+    </div>
+
+    <hr class="sidebar-divider"/>
+
+    <div class="sidebar-section" style="padding-bottom:16px;">
+      <div class="section-title">Configuration</div>
+      <div style="font-size:11px; color: var(--text-dim); line-height:1.7; padding: 0 4px;">
+        <div>Model: <span style="color:var(--accent)">claude-sonnet-4</span></div>
+        <div>Max tokens: <span style="color:var(--text-muted)">4096</span></div>
+        <div>Tools: <span style="color:var(--text-muted)">11 functions</span></div>
+        <div>Streaming: <span style="color:var(--green)">SSE enabled</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="chat-messages" id="chatMessages">
+      <!-- Welcome screen -->
+      <div class="welcome" id="welcomeScreen">
+        <div class="welcome-logo">🤖</div>
+        <h2>Agent Ready</h2>
+        <p>Ask me anything — I can use tools to get real-time data, run calculations, manage files, fetch web content, and more.</p>
+        <div class="welcome-chips">
+          <div class="welcome-chip">⚡ Real token streaming</div>
+          <div class="welcome-chip">🔧 11 agent skills</div>
+          <div class="welcome-chip">🧠 Persistent memory</div>
+          <div class="welcome-chip">📝 Markdown rendering</div>
+        </div>
+      </div>
+      <div id="bottom-anchor"></div>
+    </div>
+
+    <!-- Input bar -->
+    <div class="input-bar">
+      <div class="input-wrapper">
+        <textarea id="msgInput" rows="1" placeholder="Ask the agent anything…" maxlength="2000"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send (Enter)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <div class="input-hint">
+        <span>Powered by Anthropic Claude + Spring AI</span>
+        <span><kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> for new line</span>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+// --- State ---
+let messageCount = 0;
+let isStreaming = false;
+let currentEventSource = null;
+
+// Configure marked.js
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+  highlight: function(code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value;
+    }
+    return hljs.highlightAuto(code).value;
+  }
+});
+
+// Renderer to add copy buttons to code blocks
+const renderer = new marked.Renderer();
+renderer.code = function(code, language) {
+  const lang = language || '';
+  const highlighted = lang && hljs.getLanguage(lang)
+    ? hljs.highlight(code, { language: lang }).value
+    : hljs.highlightAuto(code).value;
+  const langLabel = lang ? `<span style="font-size:10px;color:var(--text-dim);font-family:JetBrains Mono,monospace;padding:4px 12px;display:block;border-bottom:1px solid var(--border);background:#0a0b0f;">${lang}</span>` : '';
+  return `<div class="code-block-wrapper"><pre><code class="hljs">${langLabel}${highlighted}</code></pre><button class="copy-btn" onclick="copyCode(this)">copy</button></div>`;
+};
+marked.use({ renderer });
+
+function copyCode(btn) {
+  const code = btn.previousElementSibling.querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = 'copy', 1500);
+  });
+}
+
+// --- UI helpers ---
+function scrollToBottom() {
+  const el = document.getElementById('chatMessages');
+  el.scrollTop = el.scrollHeight;
+}
+
+function hideWelcome() {
+  const w = document.getElementById('welcomeScreen');
+  if (w) { w.style.display = 'none'; }
+}
+
+function addUserMessage(text) {
+  hideWelcome();
+  messageCount++;
+  document.getElementById('msgCount').textContent = messageCount;
+
+  const anchor = document.getElementById('bottom-anchor');
+  const row = document.createElement('div');
+  row.className = 'message-row user';
+  row.innerHTML = `
+    <div class="bubble user">${escapeHtml(text)}</div>
+    <div class="avatar user">You</div>
+  `;
+  anchor.parentElement.insertBefore(row, anchor);
+  scrollToBottom();
+}
+
+function addThinkingIndicator() {
+  const anchor = document.getElementById('bottom-anchor');
+  const row = document.createElement('div');
+  row.className = 'thinking-row';
+  row.id = 'thinkingRow';
+  row.innerHTML = `
+    <div class="avatar agent">🤖</div>
+    <div class="thinking-bubble">
+      <div class="thinking-dots"><span></span><span></span><span></span></div>
+      <span>Agent is thinking…</span>
+    </div>
+  `;
+  anchor.parentElement.insertBefore(row, anchor);
+  scrollToBottom();
+  return row;
+}
+
+function removeThinkingIndicator() {
+  const el = document.getElementById('thinkingRow');
+  if (el) el.remove();
+}
+
+function addAgentBubble() {
+  messageCount++;
+  document.getElementById('msgCount').textContent = messageCount;
+  const anchor = document.getElementById('bottom-anchor');
+  const row = document.createElement('div');
+  row.className = 'message-row';
+  row.id = 'streamingRow';
+  row.innerHTML = `
+    <div class="avatar agent">🤖</div>
+    <div class="bubble agent" id="streamingBubble"><span class="cursor"></span></div>
+  `;
+  anchor.parentElement.insertBefore(row, anchor);
+  scrollToBottom();
+  return row;
+}
+
+function addErrorMessage(msg) {
+  const anchor = document.getElementById('bottom-anchor');
+  const el = document.createElement('div');
+  el.className = 'error-bubble';
+  el.textContent = '⚠ ' + msg;
+  anchor.parentElement.insertBefore(el, anchor);
+  scrollToBottom();
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/\n/g, '<br>');
+}
+
+// --- Skills animation ---
+function startSkillsAnimation() {
+  const chips = document.querySelectorAll('.skill-chip');
+  let idx = 0;
+  let lastActive = null;
+
+  function pulse() {
+    if (lastActive) { lastActive.classList.remove('pulsing', 'active'); }
+    if (idx < chips.length) {
+      chips[idx].classList.add('active', 'pulsing');
+      lastActive = chips[idx];
+      idx++;
+      return setTimeout(pulse, 800);
+    } else {
+      // Loop
+      idx = 0;
+      return setTimeout(pulse, 600);
+    }
+  }
+
+  const handle = pulse();
+
+  return function stop() {
+    clearTimeout(handle);
+    document.querySelectorAll('.skill-chip').forEach(c => c.classList.remove('pulsing', 'active'));
+  };
+}
+
+// --- Streaming ---
+let rawBuffer = '';
+let stopSkillsAnim = null;
+
+function sendMessage() {
+  if (isStreaming) return;
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  doSend(text);
+}
+
+function sendDemo(msg) {
+  if (isStreaming) return;
+  document.getElementById('msgInput').value = '';
+  doSend(msg);
+}
+
+function doSend(text) {
+  addUserMessage(text);
+  isStreaming = true;
+  document.getElementById('sendBtn').disabled = true;
+  rawBuffer = '';
+
+  const thinkingRow = addThinkingIndicator();
+
+  // Start skill animation
+  stopSkillsAnim = startSkillsAnimation();
+
+  // Abort any existing stream
+  if (currentEventSource) { currentEventSource.close(); }
+
+  const url = `/api/agent/stream?message=${encodeURIComponent(text)}`;
+  const sse = new EventSource(url);
+  currentEventSource = sse;
+  let agentBubble = null;
+  let streamingBubbleEl = null;
+
+  sse.onmessage = function(event) {
+    let data;
+    try { data = JSON.parse(event.data); } catch { return; }
+
+    if (data.type === 'thinking') {
+      // Already showing thinking indicator, do nothing
+      return;
+    }
+
+    if (data.type === 'token') {
+      if (!agentBubble) {
+        // First token — remove thinking, add agent bubble
+        removeThinkingIndicator();
+        if (stopSkillsAnim) { stopSkillsAnim(); stopSkillsAnim = null; }
+        agentBubble = addAgentBubble();
+        streamingBubbleEl = document.getElementById('streamingBubble');
+      }
+
+      rawBuffer += data.content;
+
+      // Render markdown but insert cursor at end
+      streamingBubbleEl.innerHTML = marked.parse(rawBuffer) + '<span class="cursor"></span>';
+      // Highlight new code blocks
+      streamingBubbleEl.querySelectorAll('pre code:not(.highlighted)').forEach(block => {
+        if (!block.classList.contains('highlighted')) {
+          block.classList.add('highlighted');
+        }
+      });
+      scrollToBottom();
+      return;
+    }
+
+    if (data.type === 'done') {
+      sse.close();
+      if (streamingBubbleEl) {
+        streamingBubbleEl.innerHTML = marked.parse(rawBuffer);
+      } else {
+        // Edge case: done without any tokens
+        removeThinkingIndicator();
+        if (!rawBuffer) {
+          addErrorMessage('Agent returned an empty response.');
+        }
+      }
+      finishStream();
+      return;
+    }
+
+    if (data.type === 'error') {
+      sse.close();
+      removeThinkingIndicator();
+      if (stopSkillsAnim) { stopSkillsAnim(); stopSkillsAnim = null; }
+      addErrorMessage(data.message || 'An error occurred');
+      finishStream();
+      return;
+    }
+  };
+
+  sse.onerror = function() {
+    sse.close();
+    removeThinkingIndicator();
+    if (stopSkillsAnim) { stopSkillsAnim(); stopSkillsAnim = null; }
+    if (!agentBubble) {
+      addErrorMessage('Connection error. Is the API key set? Check server logs.');
+    } else if (streamingBubbleEl) {
+      // Finish what we have
+      streamingBubbleEl.innerHTML = marked.parse(rawBuffer);
+    }
+    finishStream();
+  };
+}
+
+function finishStream() {
+  isStreaming = false;
+  currentEventSource = null;
+  document.getElementById('sendBtn').disabled = false;
+  if (stopSkillsAnim) { stopSkillsAnim(); stopSkillsAnim = null; }
+  // Remove streaming row id so it stays as regular message
+  const row = document.getElementById('streamingRow');
+  if (row) row.removeAttribute('id');
+  const bubble = document.getElementById('streamingBubble');
+  if (bubble) bubble.removeAttribute('id');
+  scrollToBottom();
+}
+
+// --- Input auto-resize ---
+const msgInput = document.getElementById('msgInput');
+msgInput.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+});
+
+msgInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// --- Clear chat ---
+function clearChat() {
+  if (isStreaming && currentEventSource) {
+    currentEventSource.close();
+    finishStream();
+  }
+  const msgs = document.getElementById('chatMessages');
+  msgs.innerHTML = `
+    <div class="welcome" id="welcomeScreen">
+      <div class="welcome-logo">🤖</div>
+      <h2>Agent Ready</h2>
+      <p>Ask me anything — I can use tools to get real-time data, run calculations, manage files, fetch web content, and more.</p>
+      <div class="welcome-chips">
+        <div class="welcome-chip">⚡ Real token streaming</div>
+        <div class="welcome-chip">🔧 11 agent skills</div>
+        <div class="welcome-chip">🧠 Persistent memory</div>
+        <div class="welcome-chip">📝 Markdown rendering</div>
+      </div>
+    </div>
+    <div id="bottom-anchor"></div>
+  `;
+  messageCount = 0;
+  document.getElementById('msgCount').textContent = '0';
+}
+
+// --- Health check ---
+async function checkHealth() {
+  try {
+    const res = await fetch('/api/agent/health');
+    const data = await res.json();
+    if (data.status === 'ready') {
+      document.getElementById('statusBadge').textContent = 'Connected';
+      document.getElementById('modelBadge').textContent = data.model || 'claude';
+    }
+  } catch {
+    document.getElementById('statusBadge').textContent = 'Offline';
+    document.getElementById('statusBadge').style.borderColor = 'rgba(248,113,113,0.3)';
+    document.getElementById('statusBadge').style.color = 'var(--red)';
+    document.getElementById('statusBadge').style.background = 'rgba(248,113,113,0.08)';
+    document.getElementById('statusBadge').classList.remove('live');
+  }
+}
+
+checkHealth();
+</script>
+</body>
+</html>

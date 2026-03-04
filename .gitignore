@@ -1,0 +1,55 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Spring Boot
+spring-boot-run.pid
+
+# Agent workspace (runtime-generated files)
+agent-workspace/
+
+# IDE — IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# IDE — Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# IDE — VS Code
+.vscode/
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+*.env
+application-local.yml
+application-local.properties
+
+# Logs
+*.log
+logs/
+
+# Compiled output (outside target/)
+*.class
+*.jar
+*.war
+*.ear
+
+# Temp
+*.tmp
+*.bak
+*.swp
