@@ -32,6 +32,10 @@ spring:
 
   # Agentic configuration
 agent:
+  # Set APP_API_KEY env var to a strong random secret before deploying
+  api-key: ${APP_API_KEY:dev-insecure-key-change-me}
+  rate-limit:
+    requests-per-minute: 20
   max-iterations: 10
   system-prompt: |
     You are an intelligent AI agent with access to various skills (tools).
@@ -50,4 +54,5 @@ management:
 
 logging:
   level:
-    org.springframework.ai: DEBUG
+    root: INFO
+    com.example.springai: INFO

@@ -18,19 +18,19 @@ public class AgentController {
     /** All available models, grouped by provider. */
     public static final List<ModelInfo> AVAILABLE_MODELS = List.of(
             // ---- Anthropic (cloud) ----
-            new ModelInfo("claude-opus-4-5",          "Claude Opus 4.5",  "Most capable, best for complex tasks",     "anthropic"),
-            new ModelInfo("claude-sonnet-4-20250514", "Claude Sonnet 4",  "Balanced performance and speed (default)", "anthropic"),
-            new ModelInfo("claude-haiku-4-5",         "Claude Haiku 4.5", "Fastest and most compact",                 "anthropic"),
+            AgentController.of("claude-opus-4-5",          "Claude Opus 4.5",  "Most capable, best for complex tasks",     "anthropic"),
+            AgentController.of("claude-sonnet-4-20250514", "Claude Sonnet 4",  "Balanced performance and speed (default)", "anthropic"),
+            AgentController.of("claude-haiku-4-5",         "Claude Haiku 4.5", "Fastest and most compact",                 "anthropic"),
             // ---- Groq — free cloud inference (https://console.groq.com) ----
-            new ModelInfo("llama-3.3-70b-versatile", "Llama 3.3 70B",  "Meta on Groq · requires GROQ_API_KEY",      "groq"),
-            new ModelInfo("llama-3.1-8b-instant",    "Llama 3.1 8B",   "Meta on Groq · fastest/cheapest",           "groq"),
-            new ModelInfo("mixtral-8x7b-32768",      "Mixtral 8x7B",   "Mistral on Groq · 32k context",             "groq"),
-            new ModelInfo("gemma2-9b-it",            "Gemma 2 9B",     "Google on Groq · requires GROQ_API_KEY",    "groq"),
+            AgentController.of("llama-3.3-70b-versatile", "Llama 3.3 70B",  "Meta on Groq · requires GROQ_API_KEY",      "groq"),
+            AgentController.of("llama-3.1-8b-instant",    "Llama 3.1 8B",   "Meta on Groq · fastest/cheapest",           "groq"),
+            AgentController.of("mixtral-8x7b-32768",      "Mixtral 8x7B",   "Mistral on Groq · 32k context",             "groq"),
+            AgentController.of("gemma2-9b-it",            "Gemma 2 9B",     "Google on Groq · requires GROQ_API_KEY",    "groq"),
             // ---- Ollama — local open-source (https://ollama.ai) ----
-            new ModelInfo("llama3.2",   "Llama 3.2 (8B)",  "Meta · run: ollama pull llama3.2",   "ollama"),
-            new ModelInfo("mistral",    "Mistral 7B",       "Mistral AI · run: ollama pull mistral",  "ollama"),
-            new ModelInfo("gemma2",     "Gemma 2 (9B)",     "Google · run: ollama pull gemma2",   "ollama"),
-            new ModelInfo("phi4",       "Phi-4 (14B)",      "Microsoft · run: ollama pull phi4",  "ollama")
+            AgentController.of("llama3.2",   "Llama 3.2 (8B)",  "Meta · run: ollama pull llama3.2",   "ollama"),
+            AgentController.of("mistral",    "Mistral 7B",       "Mistral AI · run: ollama pull mistral",  "ollama"),
+            AgentController.of("gemma2",     "Gemma 2 (9B)",     "Google · run: ollama pull gemma2",   "ollama"),
+            AgentController.of("phi4",       "Phi-4 (14B)",      "Microsoft · run: ollama pull phi4",  "ollama")
     );
 
     private final AgentServiceApi agentService;
@@ -75,11 +75,15 @@ public class AgentController {
 
     /**
      * GET /api/agent/models
-     * Returns the list of selectable Claude models.
+     * Returns the list of selectable models, each tagged with whether its provider is available.
      */
     @GetMapping("/models")
     public ResponseEntity<ModelsResponse> models() {
-        return ResponseEntity.ok(new ModelsResponse(AVAILABLE_MODELS, defaultModel));
+        List<ModelInfo> annotated = AVAILABLE_MODELS.stream()
+                .map(m -> new ModelInfo(m.id(), m.name(), m.description(), m.provider(),
+                        agentService.isProviderAvailable(m.provider()), m.supportsTools()))
+                .toList();
+        return ResponseEntity.ok(new ModelsResponse(annotated, defaultModel));
     }
 
     // --- DTOs ---
@@ -90,7 +94,11 @@ public class AgentController {
 
     public record AgentResponse(String response) {}
 
-    public record ModelInfo(String id, String name, String description, String provider) {}
+    public record ModelInfo(String id, String name, String description, String provider, boolean available, boolean supportsTools) {}
+    // Factory: defaults supportsTools=true (all non-Groq providers support tools)
+    public static ModelInfo of(String id, String name, String description, String provider) {
+        return new ModelInfo(id, name, description, provider, true, !"groq".equals(provider));
+    }
 
     public record ModelsResponse(List<ModelInfo> models, String defaultModel) {}
 }

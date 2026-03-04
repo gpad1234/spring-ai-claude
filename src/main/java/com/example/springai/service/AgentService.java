@@ -18,6 +18,9 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URI;
 import java.util.Set;
 
 /**
@@ -45,6 +48,7 @@ public class AgentService implements AgentServiceApi {
     private final ChatClient groqClient;
     /** Null when Ollama is not running locally. */
     private final ChatClient ollamaClient;
+    private final boolean ollamaReachable;
     private final int maxIterations;
 
     public AgentService(
@@ -52,6 +56,7 @@ public class AgentService implements AgentServiceApi {
             @Autowired(required = false) @Nullable OpenAiChatModel groqChatModel,
             @Autowired(required = false) @Nullable OllamaChatModel ollamaChatModel,
             @Value("${spring.ai.openai.api-key:groq-not-configured}") String groqApiKey,
+            @Value("${spring.ai.ollama.base-url:http://localhost:11434}") String ollamaBaseUrl,
             @Value("${agent.max-iterations:10}") int maxIterations,
             @Value("${agent.system-prompt:You are a helpful AI agent with tool-calling skills.}") String systemPrompt) {
 
@@ -61,7 +66,11 @@ public class AgentService implements AgentServiceApi {
                 .defaultToolNames(AgentConfig.ALL_SKILL_NAMES)
                 .build();
 
-        // Only create the Groq client when a real API key is present
+        // Only create the Groq client when a real API key is present.
+        // NOTE: Groq rejects JSON schemas that contain "additionalProperties":false, which
+        // Spring AI 1.1.x unconditionally adds to every tool parameter schema.  Until Spring AI
+        // provides a way to suppress that field for OpenAI-compatible providers, we omit tool
+        // registration for Groq entirely.  Groq therefore works as a fast chat-only model.
         boolean groqKeyPresent = groqChatModel != null
                 && !groqApiKey.isBlank()
                 && !"groq-not-configured".equals(groqApiKey);
@@ -69,7 +78,7 @@ public class AgentService implements AgentServiceApi {
                 ? ChatClient.builder(groqChatModel)
                         .defaultAdvisors(new SimpleLoggerAdvisor())
                         .defaultSystem(systemPrompt)
-                        .defaultToolNames(AgentConfig.ALL_SKILL_NAMES)
+                        // No .defaultToolNames() — Groq rejects tool schemas with additionalProperties:false
                         .build()
                 : null;
 
@@ -81,10 +90,37 @@ public class AgentService implements AgentServiceApi {
                         .build()
                 : null;
 
+        // Probe Ollama TCP socket at startup — bean exists even when server is down
+        this.ollamaReachable = ollamaClient != null && isOllamaReachable(ollamaBaseUrl);
+
         this.maxIterations = maxIterations;
         log.info("AgentService ready — Anthropic: yes, Groq: {}, Ollama: {}",
                 groqClient  != null ? "yes" : "no (set GROQ_API_KEY)",
-                ollamaClient != null ? "yes" : "no");
+                ollamaReachable ? "yes" : "no");
+    }
+
+    @Override
+    public boolean isProviderAvailable(String provider) {
+        return switch (provider) {
+            case "anthropic" -> true;
+            case "groq"     -> groqClient != null;
+            case "ollama"   -> ollamaReachable;
+            default         -> false;
+        };
+    }
+
+    /** TCP probe — returns true only if the Ollama server is actually listening. */
+    private static boolean isOllamaReachable(String baseUrl) {
+        try {
+            URI uri = URI.create(baseUrl);
+            int port = uri.getPort() > 0 ? uri.getPort() : 11434;
+            try (Socket s = new Socket()) {
+                s.connect(new InetSocketAddress(uri.getHost(), port), 1000);
+                return true;
+            }
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // ---- Provider routing ----

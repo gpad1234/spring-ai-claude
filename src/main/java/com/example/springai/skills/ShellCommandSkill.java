@@ -8,9 +8,14 @@ import org.springframework.context.annotation.Description;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 /**
  * Shell command execution skill for the AI agent.
@@ -21,14 +26,23 @@ public class ShellCommandSkill {
 
     private static final Logger log = LoggerFactory.getLogger(ShellCommandSkill.class);
 
-    /**
-     * Allowed command prefixes for security. Only these commands can be executed.
-     */
+    /** Allowed base command names. */
     private static final List<String> ALLOWED_COMMANDS = List.of(
             "ls", "cat", "echo", "date", "whoami", "pwd", "uname",
-            "wc", "head", "tail", "grep", "find", "which", "env",
+            "wc", "head", "tail", "grep", "find", "which",
             "java", "mvn", "git"
     );
+
+    /** Commands that read file paths — path args are restricted to the agent workspace. */
+    private static final Set<String> FILE_ACCESS_COMMANDS = Set.of(
+            "cat", "head", "tail", "grep", "wc", "find"
+    );
+
+    /** Shell metacharacters that enable injection — always blocked. */
+    private static final Pattern SHELL_METACHAR = Pattern.compile("[;&|`$><\\\\(){}#!]");
+
+    private static final Path WORKSPACE =
+            Path.of(System.getProperty("user.dir"), "agent-workspace");
 
     private static final int TIMEOUT_SECONDS = 30;
 
@@ -36,30 +50,58 @@ public class ShellCommandSkill {
     public record ShellResponse(String command, String output, String error, int exitCode, boolean success) {}
 
     @Bean
-    @Description("Execute a shell command on the system. Only safe, read-only commands are allowed (ls, cat, echo, date, whoami, pwd, uname, wc, head, tail, grep, find, which, env, java, mvn, git). Returns stdout, stderr, and exit code.")
+    @Description("Execute a shell command. Allowed base commands: ls, cat, echo, date, whoami, pwd, uname, wc, head, tail, grep, find, which, java, mvn, git. Shell metacharacters are blocked. File-reading commands are restricted to the agent workspace.")
     public Function<ShellRequest, ShellResponse> executeShellCommand() {
         return request -> {
             String cmd = request.command().trim();
             log.info("Skill invoked: executeShellCommand({})", cmd);
 
-            // Security: validate command prefix
-            String baseCommand = cmd.split("\\s+")[0];
-            String commandName = baseCommand.contains("/")
-                    ? baseCommand.substring(baseCommand.lastIndexOf('/') + 1)
-                    : baseCommand;
-
-            boolean allowed = ALLOWED_COMMANDS.stream()
-                    .anyMatch(a -> commandName.equals(a));
-
-            if (!allowed) {
-                log.warn("Blocked disallowed command: {}", cmd);
+            // Security: block shell metacharacters that enable injection
+            if (SHELL_METACHAR.matcher(cmd).find()) {
+                log.warn("Blocked shell metacharacters in command: {}", cmd);
                 return new ShellResponse(cmd, null,
-                        "Command not allowed. Permitted commands: " + ALLOWED_COMMANDS,
+                        "Shell metacharacters (; & | ` $ > < \\ etc.) are not permitted.",
                         -1, false);
             }
 
+            // Split into argument array — no sh -c, so no shell expansion
+            String[] args = cmd.split("\\s+");
+            String base = args[0];
+            String commandName = base.contains("/")
+                    ? base.substring(base.lastIndexOf('/') + 1)
+                    : base;
+
+            if (ALLOWED_COMMANDS.stream().noneMatch(a -> commandName.equals(a))) {
+                log.warn("Blocked disallowed command: {}", cmd);
+                return new ShellResponse(cmd, null,
+                        "Command not allowed. Permitted: " + ALLOWED_COMMANDS,
+                        -1, false);
+            }
+
+            // Security: for file-reading commands, restrict path args to the workspace
+            if (FILE_ACCESS_COMMANDS.contains(commandName)) {
+                for (String arg : args) {
+                    if (!arg.startsWith("-") && (arg.startsWith("/") || arg.contains("..") )) {
+                        try {
+                            Path resolved = WORKSPACE.resolve(arg).normalize();
+                            if (!resolved.startsWith(WORKSPACE)) {
+                                log.warn("Blocked path outside workspace: {}", arg);
+                                return new ShellResponse(cmd, null,
+                                        "File access outside the agent workspace is not permitted.",
+                                        -1, false);
+                            }
+                        } catch (Exception ignored) {
+                            return new ShellResponse(cmd, null,
+                                    "Invalid path argument: " + arg, -1, false);
+                        }
+                    }
+                }
+            }
+
             try {
-                ProcessBuilder pb = new ProcessBuilder("sh", "-c", cmd);
+                Files.createDirectories(WORKSPACE);
+                ProcessBuilder pb = new ProcessBuilder(Arrays.asList(args));
+                pb.directory(WORKSPACE.toFile());
                 pb.redirectErrorStream(false);
                 Process process = pb.start();
 

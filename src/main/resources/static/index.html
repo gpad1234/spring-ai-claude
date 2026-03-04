@@ -134,6 +134,39 @@ header {
   display: flex; align-items: center; gap: 8px;
 }
 
+.apikey-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 6px;
+  height: 28px;
+  transition: border-color 0.15s;
+}
+.apikey-wrapper:focus-within { border-color: var(--accent); }
+.apikey-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  width: 120px;
+}
+.apikey-input::placeholder { color: var(--text-dim); }
+.apikey-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.apikey-toggle:hover { color: var(--text); }
+
 /* === SIDEBAR === */
 .sidebar {
   grid-area: sidebar;
@@ -727,6 +760,11 @@ hr.sidebar-divider {
       <span class="badge" id="modelBadge">claude-sonnet-4</span>
     </div>
     <div class="header-right">
+      <div class="apikey-wrapper" title="API key — stored in localStorage">
+        <span style="color:var(--text-muted);font-size:11px;">🔑</span>
+        <input type="password" id="apiKeyInput" class="apikey-input" placeholder="API Key" autocomplete="off" />
+        <button class="apikey-toggle" onclick="toggleApiKey()" title="Show / hide">👁</button>
+      </div>
       <button class="demo-btn" onclick="clearChat()" style="padding:5px 12px;font-size:12px;border-radius:8px;">Clear</button>
     </div>
   </header>
@@ -848,6 +886,7 @@ hr.sidebar-divider {
         <select id="modelSelect" class="model-select" title="Select model" onchange="onModelChange(this.value)">
           <option value="">Loading models…</option>
         </select>
+        <span id="chatOnlyNotice" title="Groq models respond without agent tools (file, shell, web skills). Switch to a Claude model for agentic tasks." style="display:none;font-size:0.72rem;opacity:0.75;cursor:help;">⚡ chat only</span>
         <span><kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> for new line</span>
       </div>
     </div>
@@ -861,6 +900,19 @@ let messageCount = 0;
 let isStreaming = false;
 let currentEventSource = null;
 let selectedModel = '';
+
+// --- API Key ---
+function getApiKey() {
+  return document.getElementById('apiKeyInput')?.value.trim() || '';
+}
+function toggleApiKey() {
+  const inp = document.getElementById('apiKeyInput');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+function authHeaders() {
+  const k = getApiKey();
+  return k ? { 'X-API-Key': k } : {};
+}
 
 function getSelectedModel() {
   return document.getElementById('modelSelect')?.value || '';
@@ -1036,6 +1088,14 @@ function sendDemo(msg) {
 }
 
 function doSend(text) {
+  // Guard: block send if selected model is unavailable
+  const sel = document.getElementById('modelSelect');
+  const selOpt = sel?.options[sel.selectedIndex];
+  if (selOpt?.disabled) {
+    addErrorMessage('That model is not available on this server. Please select a different model.');
+    return;
+  }
+
   addUserMessage(text);
   isStreaming = true;
   document.getElementById('sendBtn').disabled = true;
@@ -1050,7 +1110,8 @@ function doSend(text) {
   if (currentEventSource) { currentEventSource.close(); }
 
   const model = getSelectedModel();
-  const url = `/api/agent/stream?message=${encodeURIComponent(text)}${model ? '&model=' + encodeURIComponent(model) : ''}`;
+  const apiKey = getApiKey();
+  const url = `/api/agent/stream?message=${encodeURIComponent(text)}${model ? '&model=' + encodeURIComponent(model) : ''}${apiKey ? '&apiKey=' + encodeURIComponent(apiKey) : ''}`;  
   const sse = new EventSource(url);
   currentEventSource = sse;
   let agentBubble = null;
@@ -1182,7 +1243,7 @@ function clearChat() {
 // --- Health check ---
 async function checkHealth() {
   try {
-    const res = await fetch('/api/agent/health');
+    const res = await fetch('/api/agent/health', { headers: authHeaders() });
     const data = await res.json();
     if (data.status === 'ready') {
       document.getElementById('statusBadge').textContent = 'Connected';
@@ -1205,7 +1266,7 @@ const PROVIDER_LABELS = {
 
 async function loadModels() {
   try {
-    const res = await fetch('/api/agent/models');
+    const res = await fetch('/api/agent/models', { headers: authHeaders() });
     const data = await res.json();
     const select = document.getElementById('modelSelect');
     select.innerHTML = '';
@@ -1218,15 +1279,25 @@ async function loadModels() {
     });
 
     Object.entries(groups).forEach(([prov, models]) => {
+      const provAvailable = models.some(m => m.available !== false);
       const group = document.createElement('optgroup');
-      group.label = PROVIDER_LABELS[prov] || prov;
+      group.label = (provAvailable ? '' : '✗ ') + (PROVIDER_LABELS[prov] || prov)
+                  + (provAvailable ? '' : ' — not configured');
       models.forEach(m => {
         const opt = document.createElement('option');
+        const avail = m.available !== false;
+        const hasTools = m.supportsTools !== false;
         opt.value = m.id;
-        opt.textContent = m.name;
-        opt.title = m.description;
+        opt.textContent = avail
+          ? (hasTools ? m.name : m.name + ' ⚡')
+          : '✗ ' + m.name;
+        opt.title = avail
+          ? (hasTools ? m.description : m.description + ' · Chat only (no agent tools)')
+          : 'Not available — ' + m.description;
+        opt.disabled = !avail;
         opt.dataset.shortName = m.name.split(' ').slice(0, 3).join(' ');
         opt.dataset.provider = m.provider || '';
+        opt.dataset.supportsTools = hasTools ? 'true' : 'false';
         if (m.id === data.defaultModel) { opt.selected = true; }
         group.appendChild(opt);
       });
@@ -1248,7 +1319,21 @@ function updateModelDisplay(select) {
   document.getElementById('modelBadge').textContent = label;
   const sidebarEl = document.getElementById('sidebarModel');
   if (sidebarEl) sidebarEl.textContent = label;
+  const notice = document.getElementById('chatOnlyNotice');
+  if (notice) notice.style.display = (chosen?.dataset?.supportsTools === 'false') ? 'inline' : 'none';
 }
+
+// Restore API key from localStorage on load
+(function() {
+  const saved = localStorage.getItem('agentApiKey');
+  const inp = document.getElementById('apiKeyInput');
+  if (saved && inp) inp.value = saved;
+  if (inp) {
+    inp.addEventListener('input', () => {
+      localStorage.setItem('agentApiKey', inp.value.trim());
+    });
+  }
+})();
 
 checkHealth();
 loadModels();

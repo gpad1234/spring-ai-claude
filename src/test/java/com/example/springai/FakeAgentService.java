@@ -32,4 +32,9 @@ class FakeAgentService implements AgentServiceApi {
     public Flux<String> streamTask(String userMessage, String model) {
         return Flux.just("streamed[" + model + "] ", "response: ", userMessage);
     }
+
+    @Override
+    public boolean isProviderAvailable(String provider) {
+        return "anthropic".equals(provider);
+    }
 }

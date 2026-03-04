@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -60,7 +61,12 @@ public class StreamController {
                             }
                         },
                         error -> {
-                            log.error("SSE stream error: {}", error.getMessage());
+                            if (error instanceof WebClientResponseException wcre) {
+                                log.error("SSE stream HTTP error {}: {}",
+                                        wcre.getStatusCode(), wcre.getResponseBodyAsString());
+                            } else {
+                                log.error("SSE stream error: {}", error.getMessage());
+                            }
                             try {
                                 emitter.send(SseEmitter.event().data(
                                         toJson(Map.of("type", "error", "message",
