@@ -3,6 +3,19 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!-- Redirect touch/mobile phones to the mobile UI (not tablets) -->
+<script>
+  (function(){
+    var ua = navigator.userAgent;
+    var isMobile = /iPhone|Android.*Mobile|IEMobile|Opera Mini|BlackBerry|Mobile Safari/.test(ua);
+    var isTablet = /iPad|Android(?!.*Mobile)/.test(ua);
+    // Also honour ?desktop=1 to skip redirect (set by mobile "switch to desktop" link)
+    var forcedDesktop = /[?&]desktop=1/.test(window.location.search);
+    if (isMobile && !isTablet && !forcedDesktop) {
+      window.location.replace('/mobile.html');
+    }
+  })();
+</script>
 <title>Claude Agent — Spring AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>

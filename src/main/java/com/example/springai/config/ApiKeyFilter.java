@@ -71,6 +71,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
     private boolean isPublic(String path) {
         return path.equals("/")
                 || path.equals("/index.html")
+                || path.equals("/mobile.html")
                 || path.equals("/favicon.ico")
                 || path.startsWith("/static/")
                 || path.equals("/api/agent/health")

@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>AI Agent</title>
+
+  <!-- marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    /* ── Reset ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface2: #252540;
+      --border: #2e2e50;
+      --accent: #6c63ff;
+      --accent2: #a78bfa;
+      --text: #e8e8f0;
+      --text-muted: #8888aa;
+      --user-bubble: #6c63ff;
+      --agent-bubble: #1e1e36;
+      --error: #ef4444;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ── App shell — dvh fills the visual viewport on iOS ────── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      position: relative;
+    }
+
+    /* ── Header ──────────────────────────────────────────────── */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      padding-top: calc(12px + var(--safe-top));
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    #header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    #header-info { display: flex; flex-direction: column; }
+    #header-title { font-size: 15px; font-weight: 600; line-height: 1.2; }
+    #header-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex; align-items: center; gap: 4px;
+    }
+    #status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #4ade80;
+      display: inline-block;
+    }
+    #status-dot.offline { background: var(--error); }
+    #status-dot.loading { background: #fbbf24; animation: pulse 1s infinite; }
+
+    #btn-model {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 12px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      min-height: 36px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    #btn-model svg { flex-shrink: 0; }
+
+    /* ── Messages area ───────────────────────────────────────── */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding: 16px 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Bubbles ─────────────────────────────────────────────── */
+    .row {
+      display: flex;
+      flex-direction: column;
+      max-width: 80%;
+    }
+    .row.user { align-self: flex-end; align-items: flex-end; }
+    .row.agent { align-self: flex-start; align-items: flex-start; }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 18px;
+      line-height: 1.45;
+      font-size: 15px;
+      word-break: break-word;
+    }
+    .row.user .bubble {
+      background: var(--user-bubble);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .row.agent .bubble {
+      background: var(--agent-bubble);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .row.agent .bubble.error-bubble {
+      background: rgba(239,68,68,0.12);
+      border-color: rgba(239,68,68,0.3);
+      color: #fca5a5;
+    }
+
+    /* Markdown inside agent bubbles */
+    .bubble p { margin: 0 0 6px; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble code {
+      background: rgba(255,255,255,0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 13px;
+    }
+    .bubble pre {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      margin: 6px 0;
+      overflow-x: auto;
+    }
+    .bubble pre code { background: none; padding: 0; font-size: 12px; }
+    .bubble a { color: var(--accent2); }
+    .bubble ul, .bubble ol { padding-left: 18px; margin: 4px 0; }
+    .bubble li { margin: 2px 0; }
+    .bubble h1, .bubble h2, .bubble h3 { font-size: 15px; margin: 6px 0 4px; }
+    .bubble strong { color: #fff; }
+
+    /* Timestamp */
+    .ts {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin: 2px 4px 0;
+    }
+
+    /* Thinking indicator */
+    #thinking {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    #thinking.visible { display: flex; }
+    .dot-anim { display: flex; gap: 4px; }
+    .dot-anim span {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+      animation: bounce 1.2s infinite;
+    }
+    .dot-anim span:nth-child(2) { animation-delay: 0.2s; }
+    .dot-anim span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+      40% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* Streaming cursor */
+    .cursor {
+      display: inline-block;
+      width: 2px; height: 14px;
+      background: var(--accent2);
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 0.7s infinite;
+    }
+    @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+    /* ── Input bar ───────────────────────────────────────────── */
+    #input-bar {
+      flex-shrink: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 12px;
+      padding-bottom: calc(8px + var(--safe-bottom));
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    #input-wrap {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      display: flex;
+      align-items: flex-end;
+      padding: 8px 14px;
+      gap: 8px;
+      transition: border-color 0.2s;
+    }
+    #input-wrap:focus-within { border-color: var(--accent); }
+
+    #msg-input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 16px; /* prevent iOS zoom */
+      font-family: inherit;
+      line-height: 1.4;
+      max-height: 120px;
+      resize: none;
+      word-break: break-word;
+    }
+    #msg-input::placeholder { color: var(--text-muted); }
+
+    #btn-send {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.2s, transform 0.1s;
+      -webkit-appearance: none;
+    }
+    #btn-send:active { transform: scale(0.92); }
+    #btn-send:disabled { background: var(--border); }
+    #btn-send svg { color: #fff; }
+
+    /* ── Model sheet (slide up) ──────────────────────────────── */
+    .sheet-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      backdrop-filter: blur(2px);
+    }
+    .sheet-backdrop.open { display: block; }
+
+    .sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      padding: 0 0 calc(16px + var(--safe-bottom));
+      z-index: 101;
+      transform: translateY(100%);
+      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+      max-height: 80dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    .sheet.open { transform: translateY(0); }
+
+    .sheet-handle {
+      width: 36px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 10px auto 0;
+      flex-shrink: 0;
+    }
+
+    .sheet-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      padding: 16px 20px 8px;
+      flex-shrink: 0;
+    }
+
+    .sheet-scroll {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .model-group-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 8px 20px 4px;
+    }
+
+    .model-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 20px;
+      gap: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .model-item:active { background: var(--surface2); }
+    .model-item.selected { background: rgba(108,99,255,0.1); }
+    .model-item.disabled { opacity: 0.4; pointer-events: none; }
+
+    .model-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .model-icon.anthropic { background: linear-gradient(135deg, #c9a96e, #8b6914); }
+    .model-icon.groq      { background: linear-gradient(135deg, #22d3ee, #0891b2); }
+    .model-icon.ollama    { background: linear-gradient(135deg, #4ade80, #16a34a); }
+
+    .model-text { flex: 1; min-width: 0; }
+    .model-name { font-size: 15px; font-weight: 500; }
+    .model-desc { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .model-check {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      display: none;
+    }
+    .model-item.selected .model-check { display: flex; }
+    .tag-chat-only {
+      font-size: 10px;
+      background: rgba(34,211,238,0.15);
+      color: #67e8f9;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Settings sheet ──────────────────────────────────────── */
+    .settings-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px 20px;
+    }
+    .settings-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .settings-input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 16px;
+      font-family: monospace;
+      outline: none;
+      width: 100%;
+    }
+    .settings-input:focus { border-color: var(--accent); }
+    .settings-save {
+      margin: 4px 20px 0;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      width: calc(100% - 40px);
+    }
+    .settings-save:active { opacity: 0.85; }
+
+    /* ── Scroll-to-bottom fab ──────────────────────────────────  */
+    #scroll-fab {
+      position: absolute;
+      bottom: 80px;
+      right: 16px;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: none;
+      align-items: center; justify-content: center;
+      cursor: pointer;
+      z-index: 5;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    #scroll-fab.visible { display: flex; }
+
+    /* ── Welcome ─────────────────────────────────────────────── */
+    #welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      gap: 12px;
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    #welcome.hidden { display: none; }
+    #welcome-icon { font-size: 48px; }
+    #welcome-title { font-size: 20px; font-weight: 600; color: var(--text); }
+    #welcome-sub { font-size: 14px; line-height: 1.5; }
+
+    .chip-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; pointer-events: all; }
+    .chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 8px 14px;
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .chip:active { background: var(--border); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- Header -->
+  <div id="header">
+    <div id="header-left">
+      <div id="avatar">🤖</div>
+      <div id="header-info">
+        <div id="header-title">AI Agent</div>
+        <div id="header-subtitle">
+          <span id="status-dot" class="loading"></span>
+          <span id="status-text">Connecting…</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="btn-model" onclick="openModelSheet()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span id="model-label">Loading…</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <button style="background:none;border:1px solid var(--border);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);" onclick="openSettingsSheet()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div id="messages">
+    <div id="welcome">
+      <div id="welcome-icon">✨</div>
+      <div id="welcome-title">What can I help with?</div>
+      <div id="welcome-sub">Ask anything — I can help with coding, writing, math, analysis, and more.</div>
+      <div class="chip-row">
+        <div class="chip" onclick="useChip(this)">Explain a concept</div>
+        <div class="chip" onclick="useChip(this)">Write some code</div>
+        <div class="chip" onclick="useChip(this)">Summarise text</div>
+        <div class="chip" onclick="useChip(this)">Solve a problem</div>
+      </div>
+    </div>
+    <div id="thinking" aria-live="polite">
+      <div class="dot-anim"><span></span><span></span><span></span></div>
+      <span>Thinking…</span>
+    </div>
+  </div>
+
+  <!-- Scroll-to-bottom FAB -->
+  <div id="scroll-fab" onclick="scrollToBottom(true)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+  </div>
+
+  <!-- Input bar -->
+  <div id="input-bar">
+    <div id="input-wrap">
+      <textarea id="msg-input"
+        rows="1"
+        placeholder="Message…"
+        autocomplete="off"
+        autocorrect="on"
+        spellcheck="true"
+        onkeydown="onKey(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+    </div>
+    <button id="btn-send" onclick="doSend()" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+      </svg>
+    </button>
+  </div>
+
+</div><!-- #app -->
+
+<!-- Model sheet -->
+<div id="model-backdrop" class="sheet-backdrop" onclick="closeModelSheet()"></div>
+<div id="model-sheet" class="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Choose Model</div>
+  <div id="model-list" class="sheet-scroll"></div>
+</div>
+
+<!-- Settings sheet -->
+<div id="settings-backdrop" class="sheet-backdrop" onclick="closeSettingsSheet()"></div>
+<div id="settings-sheet" class="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Settings</div>
+  <div class="settings-row">
+    <div class="settings-label">API Key</div>
+    <input id="apikey-input" class="settings-input" type="password" placeholder="Your APP_API_KEY…" autocomplete="off" autocorrect="off" spellcheck="false">
+  </div>
+  <button class="settings-save" onclick="saveSettings()">Save</button>
+  <div style="text-align:center;padding:12px 20px 0;font-size:12px;color:var(--text-muted)">
+    <a href="/?desktop=1" style="color:var(--accent2)">Switch to desktop view</a>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+let selectedModel = '';
+let models = [];
+let isStreaming = false;
+let currentEventSource = null;
+let atBottom = true;
+
+// ── Init ───────────────────────────────────────────────────────────
+(function init() {
+  // Restore API key
+  const saved = localStorage.getItem('agentApiKey');
+  if (saved) document.getElementById('apikey-input').value = saved;
+  checkHealth();
+  loadModels();
+  document.getElementById('msg-input').addEventListener('input', onInputChange);
+  document.getElementById('messages').addEventListener('scroll', onScroll);
+})();
+
+// ── Health ─────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch('/api/agent/health');
+    if (!r.ok) throw new Error();
+    setStatus('online', 'Online');
+  } catch {
+    setStatus('offline', 'Unavailable');
+  }
+}
+
+function setStatus(state, text) {
+  const dot = document.getElementById('status-dot');
+  dot.className = state === 'loading' ? 'loading' : (state === 'online' ? '' : 'offline');
+  document.getElementById('status-text').textContent = text;
+}
+
+// ── Models ─────────────────────────────────────────────────────────
+const PROVIDER_ICON = { anthropic: '🔮', groq: '⚡', ollama: '🦙' };
+const PROVIDER_CLASS = { anthropic: 'anthropic', groq: 'groq', ollama: 'ollama' };
+
+async function loadModels() {
+  try {
+    const r = await fetch('/api/agent/models');
+    const data = await r.json();
+    models = data.models;
+    selectedModel = data.defaultModel;
+    renderModelList();
+    updateModelBtn();
+  } catch {
+    document.getElementById('model-label').textContent = 'Default';
+  }
+}
+
+function renderModelList() {
+  const list = document.getElementById('model-list');
+  list.innerHTML = '';
+  const groups = {};
+  models.forEach(m => (groups[m.provider] = groups[m.provider] || []).push(m));
+  const providerOrder = ['anthropic', 'groq', 'ollama'];
+  providerOrder.forEach(prov => {
+    if (!groups[prov]) return;
+    const label = document.createElement('div');
+    label.className = 'model-group-label';
+    label.textContent = { anthropic: 'Anthropic (Cloud)', groq: 'Groq (Cloud · Free)', ollama: 'Ollama (Local)' }[prov] || prov;
+    list.appendChild(label);
+    groups[prov].forEach(m => {
+      const item = document.createElement('div');
+      item.className = 'model-item' +
+        (m.id === selectedModel ? ' selected' : '') +
+        (!m.available ? ' disabled' : '');
+      item.dataset.id = m.id;
+      item.innerHTML = `
+        <div class="model-icon ${PROVIDER_CLASS[m.provider] || ''}">${PROVIDER_ICON[m.provider] || '🤖'}</div>
+        <div class="model-text">
+          <div class="model-name">${m.name}${!m.supportsTools ? ' <span class="tag-chat-only">chat</span>' : ''}</div>
+          <div class="model-desc">${m.available ? m.description : 'Not configured'}</div>
+        </div>
+        <div class="model-check">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>`;
+      if (m.available) item.onclick = () => selectModel(m.id);
+      list.appendChild(item);
+    });
+  });
+}
+
+function selectModel(id) {
+  selectedModel = id;
+  document.querySelectorAll('.model-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.id === id);
+  });
+  updateModelBtn();
+  closeModelSheet();
+}
+
+function updateModelBtn() {
+  const m = models.find(x => x.id === selectedModel);
+  document.getElementById('model-label').textContent = m ? m.name.split(' ').slice(0,3).join(' ') : selectedModel;
+}
+
+// ── Sheets ─────────────────────────────────────────────────────────
+function openModelSheet() {
+  document.getElementById('model-backdrop').classList.add('open');
+  document.getElementById('model-sheet').classList.add('open');
+}
+function closeModelSheet() {
+  document.getElementById('model-backdrop').classList.remove('open');
+  document.getElementById('model-sheet').classList.remove('open');
+}
+function openSettingsSheet() {
+  document.getElementById('settings-backdrop').classList.add('open');
+  document.getElementById('settings-sheet').classList.add('open');
+}
+function closeSettingsSheet() {
+  document.getElementById('settings-backdrop').classList.remove('open');
+  document.getElementById('settings-sheet').classList.remove('open');
+}
+function saveSettings() {
+  const key = document.getElementById('apikey-input').value.trim();
+  localStorage.setItem('agentApiKey', key);
+  closeSettingsSheet();
+}
+
+// ── Input ──────────────────────────────────────────────────────────
+function getApiKey() { return localStorage.getItem('agentApiKey') || ''; }
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function onInputChange() {
+  const val = document.getElementById('msg-input').value.trim();
+  document.getElementById('btn-send').disabled = !val || isStreaming;
+}
+
+function onKey(e) {
+  // On iOS/mobile we never submit on Enter (user uses send button)
+  // On desktop variant: Shift+Enter = newline, Enter alone = send
+  if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 600) {
+    e.preventDefault();
+    doSend();
+  }
+}
+
+function useChip(el) {
+  document.getElementById('msg-input').value = el.textContent;
+  autoResize(document.getElementById('msg-input'));
+  onInputChange();
+  doSend();
+}
+
+// ── Messages ───────────────────────────────────────────────────────
+function addBubble(role, html, isMarkdown) {
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.classList.add('hidden');
+
+  const row = document.createElement('div');
+  row.className = `row ${role}`;
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (isMarkdown) bubble.innerHTML = marked.parse(html);
+  else bubble.textContent = html;
+  row.appendChild(bubble);
+
+  const ts = document.createElement('div');
+  ts.className = 'ts';
+  ts.textContent = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  row.appendChild(ts);
+
+  const container = document.getElementById('messages');
+  const thinking = document.getElementById('thinking');
+  container.insertBefore(row, thinking);
+  if (atBottom) scrollToBottom();
+  return bubble;
+}
+
+function addErrorBubble(msg) {
+  const row = document.createElement('div');
+  row.className = 'row agent';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble error-bubble';
+  bubble.textContent = '⚠ ' + msg;
+  row.appendChild(bubble);
+  const container = document.getElementById('messages');
+  container.insertBefore(row, document.getElementById('thinking'));
+  scrollToBottom();
+}
+
+function scrollToBottom(force) {
+  const el = document.getElementById('messages');
+  if (force || atBottom) el.scrollTop = el.scrollHeight;
+}
+
+function onScroll() {
+  const el = document.getElementById('messages');
+  const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+  atBottom = dist < 60;
+  document.getElementById('scroll-fab').classList.toggle('visible', !atBottom && el.scrollHeight > el.clientHeight + 100);
+}
+
+// ── Stream ─────────────────────────────────────────────────────────
+function doSend() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text || isStreaming) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('btn-send').disabled = true;
+  isStreaming = true;
+
+  addBubble('user', text, false);
+
+  // Show thinking
+  const thinking = document.getElementById('thinking');
+  thinking.classList.add('visible');
+  scrollToBottom(true);
+
+  if (currentEventSource) { currentEventSource.close(); currentEventSource = null; }
+
+  const apiKey = getApiKey();
+  const url = '/api/agent/stream'
+    + '?message=' + encodeURIComponent(text)
+    + (selectedModel ? '&model=' + encodeURIComponent(selectedModel) : '')
+    + (apiKey ? '&apiKey=' + encodeURIComponent(apiKey) : '');
+
+  const sse = new EventSource(url);
+  currentEventSource = sse;
+  let agentBubble = null;
+  let rawBuffer = '';
+
+  sse.onmessage = function(e) {
+    let data;
+    try { data = JSON.parse(e.data); } catch { return; }
+
+    if (data.type === 'thinking') return;
+
+    if (data.type === 'token') {
+      thinking.classList.remove('visible');
+      if (!agentBubble) agentBubble = addBubble('agent', '', false);
+      rawBuffer += data.content;
+      agentBubble.innerHTML = marked.parse(rawBuffer) + '<span class="cursor"></span>';
+      if (atBottom) scrollToBottom();
+      return;
+    }
+
+    if (data.type === 'done') {
+      if (agentBubble) agentBubble.innerHTML = marked.parse(rawBuffer);
+      thinking.classList.remove('visible');
+      sse.close(); currentEventSource = null;
+      isStreaming = false;
+      document.getElementById('btn-send').disabled = false;
+      return;
+    }
+
+    if (data.type === 'error') {
+      thinking.classList.remove('visible');
+      addErrorBubble(data.message || 'Something went wrong.');
+      sse.close(); currentEventSource = null;
+      isStreaming = false;
+      document.getElementById('btn-send').disabled = false;
+    }
+  };
+
+  sse.onerror = function() {
+    thinking.classList.remove('visible');
+    if (agentBubble) agentBubble.innerHTML = marked.parse(rawBuffer);
+    else addErrorBubble('Connection lost. Please try again.');
+    sse.close(); currentEventSource = null;
+    isStreaming = false;
+    document.getElementById('btn-send').disabled = false;
+  };
+}
+</script>
+</body>
+</html>
