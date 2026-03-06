@@ -24,6 +24,7 @@ import org.springframework.context.annotation.Configuration;
  * - retrieveMemory: Retrieve values from agent memory
  * - listMemoryKeys: List all keys in agent memory
  * - evaluateMath: Evaluate mathematical expressions
+ * - getWeather: Get current weather for any city
  */
 @Configuration
 public class AgentConfig {
@@ -42,6 +43,7 @@ public class AgentConfig {
             "storeMemory",
             "retrieveMemory",
             "listMemoryKeys",
-            "evaluateMath"
+            "evaluateMath",
+            "getWeather"
     };
 }
